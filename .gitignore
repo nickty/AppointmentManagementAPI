@@ -1,0 +1,14 @@
+# Build and Release directories
+bin/
+obj/
+
+# User-specific files
+.vscode/
+*.user
+*.suo
+
+# Logs
+*.log
+
+# Environment files
+.env
