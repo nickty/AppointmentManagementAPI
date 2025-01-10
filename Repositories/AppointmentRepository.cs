@@ -1,28 +1,56 @@
-using System.Collections.Concurrent;
-
 public class AppointmentRepository
 {
-    private readonly ConcurrentDictionary<int, Appointment> _appointments = new();
-    private int _currentId = 0;
+    private readonly List<Appointment> _appointments = new List<Appointment>();
 
+    // Add Appointment
     public int Add(Appointment appointment)
     {
-        var id = ++_currentId;
-        appointment.AppointmentId = id;
-        _appointments[id] = appointment;
-        return id;
+        appointment.AppointmentId = _appointments.Count + 1; // Generate unique ID for Appointment
+        _appointments.Add(appointment);
+        return appointment.AppointmentId;
     }
 
-    public List<Appointment> GetAll() => _appointments.Values.ToList();
+    // Get All Appointments
+    public List<Appointment> GetAll()
+    {
+        return _appointments;
+    }
 
-    public Appointment GetById(int id) => _appointments.TryGetValue(id, out var appointment) ? appointment : null;
+    // Get Appointment by ID
+    public Appointment GetById(int id)
+    {
+        return _appointments.FirstOrDefault(a => a.AppointmentId == id);
+    }
 
+    // Update Appointment
     public bool Update(int id, Appointment updatedAppointment)
     {
-        if (!_appointments.ContainsKey(id)) return false;
-        _appointments[id] = updatedAppointment;
+        var existingAppointment = GetById(id);
+        if (existingAppointment == null)
+        {
+            return false; // Appointment not found
+        }
+
+        // Update existing appointment details
+        existingAppointment.PatientName = updatedAppointment.PatientName;
+        existingAppointment.PatientContact = updatedAppointment.PatientContact;
+        existingAppointment.AppointmentDateTime = updatedAppointment.AppointmentDateTime;
+        existingAppointment.DoctorId = updatedAppointment.DoctorId;
+        existingAppointment.Doctor = updatedAppointment.Doctor;
+
         return true;
     }
 
-    public bool Delete(int id) => _appointments.TryRemove(id, out _);
+    // Delete Appointment
+    public bool Delete(int id)
+    {
+        var appointment = GetById(id);
+        if (appointment == null)
+        {
+            return false; // Appointment not found
+        }
+
+        _appointments.Remove(appointment);
+        return true;
+    }
 }
