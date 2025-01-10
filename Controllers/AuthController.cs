@@ -1,36 +1,74 @@
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using AppointmentManagementAPI.Dtos;
+using AppointmentManagementAPI.Repositories;
+
+
 [ApiController]
-[Route("[controller]")]
+[Route("auth")]
 public class AuthController : ControllerBase
 {
-    private readonly AppDbContext _context;
-    private readonly TokenService _tokenService;
+    private readonly IUserRepository _userRepository;
+    private readonly IConfiguration _configuration;
 
-    public AuthController(AppDbContext context, TokenService tokenService)
+    public AuthController(IUserRepository userRepository, IConfiguration configuration)
     {
-        _context = context;
-        _tokenService = tokenService;
+        _userRepository = userRepository;
+        _configuration = configuration;
     }
 
     [HttpPost("register")]
-    public IActionResult Register(string username, string password)
+    public IActionResult Register([FromBody] UserDto user)
     {
-        var passwordHash = BCrypt.Net.BCrypt.HashPassword(password);
-        var user = new User { Username = username, PasswordHash = passwordHash };
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
 
-        _context.Users.Add(user);
-        _context.SaveChanges();
+        string hashedPassword = BCrypt.Net.BCrypt.HashPassword(user.Password);
+        _userRepository.AddUser(user.Username, hashedPassword);
 
         return Ok(new { Message = "User registered successfully" });
     }
 
     [HttpPost("login")]
-    public IActionResult Login(string username, string password)
+    public IActionResult Login([FromBody] UserDto user)
     {
-        var user = _context.Users.SingleOrDefault(u => u.Username == username);
-        if (user == null || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
-            return Unauthorized();
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
 
-        var token = _tokenService.GenerateToken(username);
+        var existingUser = _userRepository.GetUserByUsername(user.Username);
+        if (existingUser == null || !BCrypt.Net.BCrypt.Verify(user.Password, existingUser.Password))
+        {
+            return Unauthorized(new { Message = "Invalid username or password." });
+        }
+
+        var token = GenerateJwtToken(existingUser.Username);
         return Ok(new { Token = token });
+    }
+
+    private string GenerateJwtToken(string username)
+    {
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.Name, username),
+        };
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var token = new JwtSecurityToken(
+            issuer: _configuration["Jwt:Issuer"],
+            audience: _configuration["Jwt:Audience"],
+            claims: claims,
+            expires: DateTime.Now.AddHours(1),
+            signingCredentials: creds);
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }

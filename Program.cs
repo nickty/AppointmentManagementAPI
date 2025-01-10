@@ -1,7 +1,8 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.EntityFrameworkCore;
 using System.Text;
+using AppointmentManagementAPI.Repositories;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,6 +10,17 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// Add in-memory repositories
+builder.Services.AddSingleton<UserRepository>();
+builder.Services.AddSingleton<AppointmentRepository>();
+builder.Services.AddSingleton<IUserRepository, UserRepository>();
+
+
+
+
+// Add token service
+builder.Services.AddScoped<TokenService>();
 
 // Configure JWT authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -25,11 +37,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
         };
     });
-
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-builder.Services.AddScoped<TokenService>();
 
 var app = builder.Build();
 
